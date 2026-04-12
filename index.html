@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Snake IO</title>
+<style>
+body { margin:0; background:#111; display:flex; justify-content:center; align-items:center; height:100vh; }
+canvas { background:#181818; border:2px solid #444; }
+#ui { position:absolute; top:10px; color:white; font-family:Arial; font-size:18px; }
+</style>
+</head>
+<body>
+
+<div id="ui">Score: 0</div>
+<canvas id="game" width="640" height="420"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const CELL = 20;
+const COLS = canvas.width / CELL;
+const ROWS = canvas.height / CELL;
+
+let snake = [{x:10,y:10}];
+let dir = {x:1,y:0};
+let food = spawnFood();
+let score = 0;
+
+document.addEventListener("keydown", e=>{
+  if(e.key==="ArrowUp" && dir.y===0) dir={x:0,y:-1};
+  if(e.key==="ArrowDown" && dir.y===0) dir={x:0,y:1};
+  if(e.key==="ArrowLeft" && dir.x===0) dir={x:-1,y:0};
+  if(e.key==="ArrowRight" && dir.x===0) dir={x:1,y:0};
+});
+
+function spawnFood(){
+  return {
+    x: Math.floor(Math.random()*COLS),
+    y: Math.floor(Math.random()*ROWS)
+  };
+}
+
+function loop(){
+  let head = {x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+
+  if(head.x<0) head.x=COLS-1;
+  if(head.x>=COLS) head.x=0;
+  if(head.y<0) head.y=ROWS-1;
+  if(head.y>=ROWS) head.y=0;
+
+  for(let p of snake){
+    if(p.x===head.x && p.y===head.y){
+      snake=[{x:10,y:10}];
+      dir={x:1,y:0};
+      score=0;
+    }
+  }
+
+  snake.unshift(head);
+
+  if(head.x===food.x && head.y===food.y){
+    score++;
+    food=spawnFood();
+  } else {
+    snake.pop();
+  }
+
+  draw();
+  setTimeout(loop, 110);
+}
+
+function draw(){
+  ctx.fillStyle="#181818";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle="red";
+  ctx.fillRect(food.x*CELL, food.y*CELL, CELL, CELL);
+
+  for(let i=0;i<snake.length;i++){
+    ctx.fillStyle = i===0 ? "#00ff9d" : "#00aa66";
+    ctx.fillRect(snake[i].x*CELL, snake[i].y*CELL, CELL-2, CELL-2);
+  }
+
+  document.getElementById("ui").innerText = "Score: "+score;
+}
+
+loop();
+</script>
+
+</body>
+</html>
