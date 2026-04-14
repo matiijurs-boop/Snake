@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Snake Pro Vision</title>
+
+<style>
+body {
+    margin:0;
+    background: radial-gradient(circle at center, #1a1a1a, #0b0b0b);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    font-family:consolas;
+}
+canvas {
+    border-radius:12px;
+    box-shadow: 0 0 50px rgba(0,255,150,0.25);
+}
+</style>
+</head>
+
+<body>
+<canvas id="game" width="640" height="420"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const CELL = 20;
+const W = canvas.width;
+const H = canvas.height;
+
+const MODE_WRAP = 1;
+const MODE_WALLS = 2;
+const MODE_CHAOS = 3;
+
+const SPEEDS = [0,6,9,12];
+const FOOD_OPTIONS = [1,3,5,10];
+
+let state = "menu";
+
+let mode = 1;
+let level = 1;
+let foodIndex = 0;
+let foodCount = FOOD_OPTIONS[foodIndex];
+let selected = 0;
+
+// GAME
+let snake, dir, foods, walls, score;
+let moveProgress = 0;
+let lastTime = 0;
+
+function reset(){
+    snake = [
+        {x:200,y:200, px:200, py:200},
+        {x:180,y:200, px:180, py:200},
+        {x:160,y:200, px:160, py:160}
+    ];
+
+    dir = {x:CELL,y:0};
+    foods = [];
+    score = 0;
+    walls = [];
+
+    if(mode===MODE_CHAOS){
+        for(let i=0;i<25;i++){
+            walls.push(rand());
+        }
+    }
+
+    for(let i=0;i<foodCount;i++){
+        foods.push(spawnFood());
+    }
+}
+
+function spawnFood(){
+    while(true){
+        let f = rand();
+        let ok = true;
+        for(let s of snake){
+            if(s.x===f.x && s.y===f.y) ok=false;
+        }
+        if(ok) return f;
+    }
+}
+
+function rand(){
+    return {
+        x: Math.floor(Math.random()*(W/CELL))*CELL,
+        y: Math.floor(Math.random()*(H/CELL))*CELL
+    };
+}
+
+document.addEventListener("keydown", e=>{
+
+    if(state==="menu"){
+        if(e.key==="ArrowUp") selected=(selected+2)%3;
+        if(e.key==="ArrowDown") selected=(selected+1)%3;
+
+        if(e.key==="ArrowRight"){
+            if(selected===0) mode = mode===3?1:mode+1;
+            if(selected===1) level = level===3?1:level+1;
+            if(selected===2){
+                foodIndex = (foodIndex+1)%FOOD_OPTIONS.length;
+                foodCount = FOOD_OPTIONS[foodIndex];
+            }
+        }
+
+        if(e.key==="ArrowLeft"){
+            if(selected===0) mode = mode===1?3:mode-1;
+            if(selected===1) level = level===1?3:level-1;
+            if(selected===2){
+                foodIndex = (foodIndex-1+FOOD_OPTIONS.length)%FOOD_OPTIONS.length;
+                foodCount = FOOD_OPTIONS[foodIndex];
+            }
+        }
+
+        if(e.key==="Enter"){
+            reset();
+            state="game";
+        }
+    }
+
+    else if(state==="game"){
+        if(e.key==="Escape") state="menu";
+        if(e.key==="r") reset();
+
+        if(e.key==="ArrowUp" && dir.y===0) dir={x:0,y:-CELL};
+        if(e.key==="ArrowDown" && dir.y===0) dir={x:0,y:CELL};
+        if(e.key==="ArrowLeft" && dir.x===0) dir={x:-CELL,y:0};
+        if(e.key==="ArrowRight" && dir.x===0) dir={x:CELL,y:0};
+    }
+
+    else if(state==="dead"){
+        if(e.key==="r"){ reset(); state="game"; }
+        if(e.key==="Escape"){ state="menu"; }
+    }
+});
+
+function update(time){
+
+    if(state!=="game") return;
+
+    let speed = SPEEDS[level];
+    let delta = time - lastTime;
+    lastTime = time;
+
+    moveProgress += delta/(1000/speed);
+
+    if(moveProgress >= 1){
+        moveProgress = 0;
+
+        for(let s of snake){
+            s.px = s.x;
+            s.py = s.y;
+        }
+
+        let head = {
+            x: snake[0].x + dir.x,
+            y: snake[0].y + dir.y,
+            px: snake[0].x,
+            py: snake[0].y
+        };
+
+        snake.unshift(head);
+
+        let ate = false;
+
+        for(let i=0;i<foods.length;i++){
+            if(head.x===foods[i].x && head.y===foods[i].y){
+                foods[i]=spawnFood();
+                score++;
+                ate=true;
+            }
+        }
+
+        if(!ate) snake.pop();
+
+        if(mode===MODE_WRAP){
+            if(head.x<0){ head.x=W-CELL; head.px=head.x; }
+            if(head.x>=W){ head.x=0; head.px=head.x; }
+            if(head.y<0){ head.y=H-CELL; head.py=head.y; }
+            if(head.y>=H){ head.y=0; head.py=head.y; }
+        }
+
+        if(mode===MODE_WALLS){
+            if(head.x<0||head.x>=W||head.y<0||head.y>=H){
+                state="dead";
+            }
+        }
+
+        if(mode===MODE_CHAOS){
+            if(head.x<0||head.x>=W||head.y<0||head.y>=H){
+                state="dead";
+            }
+        }
+
+        for(let i=1;i<snake.length;i++){
+            if(head.x===snake[i].x && head.y===snake[i].y){
+                state="dead";
+            }
+        }
+
+        if(mode===MODE_CHAOS){
+            for(let w of walls){
+                if(head.x===w.x && head.y===w.y){
+                    state="dead";
+                }
+            }
+        }
+    }
+}
+
+function drawMenu(){
+    ctx.fillStyle="#111";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle="#ffb400";
+    ctx.font="60px consolas";
+    ctx.fillText("SNAKE", 200,80);
+
+    let items = [
+        ["Mode", ["Normal","Walls","Chaos"][mode-1]],
+        ["Level", ["Easy","Medium","Hard"][level-1]],
+        ["Food", foodCount]
+    ];
+
+    for(let i=0;i<items.length;i++){
+        let y = 160+i*80;
+        let sel = i===selected;
+
+        ctx.font = (sel?38:28)+"px consolas";
+        ctx.fillStyle = sel ? "yellow" : "white";
+
+        ctx.fillText(items[i][0], 160, y - (sel?10:0));
+        ctx.fillText(items[i][1], 360, y - (sel?10:0));
+    }
+
+    ctx.font="20px consolas";
+    ctx.fillText("ENTER start", 240,380);
+}
+
+function drawGame(){
+
+    ctx.fillStyle="#121212";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.strokeStyle="rgba(255,255,255,0.04)";
+    for(let x=0;x<W;x+=CELL){
+        ctx.beginPath();
+        ctx.moveTo(x,0);
+        ctx.lineTo(x,H);
+        ctx.stroke();
+    }
+    for(let y=0;y<H;y+=CELL){
+        ctx.beginPath();
+        ctx.moveTo(0,y);
+        ctx.lineTo(W,y);
+        ctx.stroke();
+    }
+
+    for(let i=snake.length-1;i>=0;i--){
+        let s = snake[i];
+
+        let x = s.px + (s.x - s.px)*moveProgress;
+        let y = s.py + (s.y - s.py)*moveProgress;
+
+        ctx.fillStyle = i===0 ? "#00ffaa" : "#00cc88";
+
+        ctx.beginPath();
+        ctx.roundRect(x,y,CELL,CELL,6);
+        ctx.fill();
+
+        if(i===0){
+            ctx.fillStyle="#000";
+
+            let ex1=x+6, ey1=y+6;
+            let ex2=x+13, ey2=y+6;
+
+            if(dir.x>0){ ex1=x+12; ex2=x+12; ey1=y+6; ey2=y+13; }
+            if(dir.x<0){ ex1=x+6; ex2=x+6; ey1=y+6; ey2=y+13; }
+            if(dir.y>0){ ex1=x+6; ex2=x+13; ey1=y+12; ey2=y+12; }
+            if(dir.y<0){ ex1=x+6; ex2=x+13; ey1=y+6; ey2=y+6; }
+
+            ctx.fillRect(ex1,ey1,3,3);
+            ctx.fillRect(ex2,ey2,3,3);
+        }
+    }
+
+    ctx.shadowBlur=20;
+    ctx.shadowColor="red";
+    ctx.fillStyle="red";
+
+    for(let f of foods){
+        ctx.beginPath();
+        ctx.arc(f.x+10,f.y+10,8,0,Math.PI*2);
+        ctx.fill();
+    }
+    ctx.shadowBlur=0;
+
+    if(mode===MODE_CHAOS){
+        ctx.fillStyle="#8888ff";
+        for(let w of walls){
+            ctx.fillRect(w.x,w.y,CELL,CELL);
+        }
+    }
+
+    ctx.fillStyle="white";
+    ctx.font="20px consolas";
+    ctx.fillText("Score: "+score,10,25);
+}
+
+function drawDead(){
+    ctx.fillStyle="#111";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle="orange";
+    ctx.font="50px consolas";
+    ctx.fillText("GAME OVER",150,200);
+
+    ctx.font="24px consolas";
+    ctx.fillText("R retry | ESC menu",170,260);
+}
+
+function loop(time){
+    if(state==="menu") drawMenu();
+    if(state==="game"){ update(time); drawGame(); }
+    if(state==="dead") drawDead();
+
+    requestAnimationFrame(loop);
+}
+
+reset();
+loop();
+</script>
+
+</body>
+</html>
