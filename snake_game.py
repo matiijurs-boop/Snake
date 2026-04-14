@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Snake Pro Vision</title>
+<title>Snake</title>
 
 <style>
 body {
