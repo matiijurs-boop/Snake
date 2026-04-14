@@ -1,300 +1,340 @@
-import pygame
-import random
-import sys
-import math
-
-pygame.init()
-
-# ---------------- SCREEN ----------------
-WIDTH, HEIGHT = 640, 420
-CELL = 20
-
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Snake Safe Food Edition")
-clock = pygame.time.Clock()
-
-# ---------------- COLORS ----------------
-BG = (18,18,18)
-GRID = (35,35,35)
-SNAKE = (0,200,120)
-HEAD = (0,255,160)
-FOOD = (255,80,80)
-TEXT = (230,230,230)
-ACCENT = (255,180,0)
-WALL = (120,120,255)
-BORDER = (120,120,120)
-
-font_big = pygame.font.SysFont("consolas", 44)
-font = pygame.font.SysFont("consolas", 24)
-
-# ---------------- MODES ----------------
-MODE_WRAP = 1
-MODE_NORMAL = 2
-MODE_CHAOS = 3
-
-LEVEL_SPEED = {1:10, 2:15, 3:22}
-
-FOOD_COUNT_OPTIONS = [1, 3, 5, 10]
-
-# ---------------- DRAW ----------------
-def draw_text(text, x, y, big=False, center=False, color=TEXT):
-    f = font_big if big else font
-    img = f.render(text, True, color)
-    rect = img.get_rect()
-    if center:
-        rect.center = (x,y)
-    else:
-        rect.topleft = (x,y)
-    screen.blit(img, rect)
-
-# ---------------- SNAKE ----------------
-class Snake:
-    def __init__(self):
-        self.body = [(200,200),(180,200),(160,200)]
-        self.dir = (CELL,0)
-
-    def move(self):
-        head = (self.body[0][0]+self.dir[0], self.body[0][1]+self.dir[1])
-        self.body.insert(0, head)
-        self.body.pop()
-
-    def grow(self, n=1):
-        for _ in range(n):
-            self.body.append(self.body[-1])
-
-    def draw(self):
-        for i,p in enumerate(self.body):
-            color = HEAD if i==0 else SNAKE
-            pygame.draw.rect(screen, color, (*p, CELL, CELL), border_radius=6)
-
-    def hit_self(self):
-        return self.body[0] in self.body[1:]
-
-# ---------------- FOOD (SAFE SPAWN) ----------------
-class Food:
-    def __init__(self, snake):
-        self.snake = snake
-        self.pos = self.spawn()
-
-    def spawn(self):
-        while True:
-            pos = (
-                random.randrange(0, WIDTH, CELL),
-                random.randrange(0, HEIGHT, CELL)
-            )
-
-            if pos not in self.snake.body:
-                return pos
-
-    def draw(self):
-        pygame.draw.rect(screen, FOOD, (*self.pos, CELL, CELL), border_radius=8)
-
-# ---------------- GAME ----------------
-def game(mode, level, food_count):
-
-    snake = Snake()
-    speed = LEVEL_SPEED[level]
-
-    score = 0
-    walls = []
-
-    # CHAOS walls
-    if mode == MODE_CHAOS:
-        for _ in range(30):
-            walls.append((
-                random.randrange(0, WIDTH, CELL),
-                random.randrange(0, HEIGHT, CELL)
-            ))
-
-    food_list = [Food(snake) for _ in range(food_count)]
-
-    while True:
-        screen.fill(BG)
-
-        # grid
-        for x in range(0, WIDTH, CELL):
-            pygame.draw.line(screen, GRID, (x,0), (x,HEIGHT))
-        for y in range(0, HEIGHT, CELL):
-            pygame.draw.line(screen, GRID, (0,y), (WIDTH,y))
-
-        if mode == MODE_CHAOS:
-            speed = LEVEL_SPEED[level] + random.randint(0,3)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    return "menu"
-                if event.key == pygame.K_r:
-                    return "retry"
-
-                if event.key == pygame.K_UP and snake.dir!=(0,CELL): snake.dir=(0,-CELL)
-                if event.key == pygame.K_DOWN and snake.dir!=(0,-CELL): snake.dir=(0,CELL)
-                if event.key == pygame.K_LEFT and snake.dir!=(CELL,0): snake.dir=(-CELL,0)
-                if event.key == pygame.K_RIGHT and snake.dir!=(-CELL,0): snake.dir=(CELL,0)
-
-        snake.move()
-        hx, hy = snake.body[0]
-
-        # WRAP
-        if mode == MODE_WRAP:
-            if hx < 0: hx = WIDTH - CELL
-            elif hx >= WIDTH: hx = 0
-            if hy < 0: hy = HEIGHT - CELL
-            elif hy >= HEIGHT: hy = 0
-            snake.body[0] = (hx, hy)
-
-        # NORMAL
-        elif mode == MODE_NORMAL:
-            if hx < 0 or hx >= WIDTH or hy < 0 or hy >= HEIGHT:
-                return "dead"
-
-        if snake.hit_self():
-            return "dead"
-
-        if mode == MODE_CHAOS and snake.body[0] in walls:
-            return "dead"
-
-        # FOOD
-        for food in food_list:
-            if snake.body[0] == food.pos:
-                snake.grow()
-                food.pos = food.spawn()
-                score += 1
-
-        # DRAW
-        snake.draw()
-
-        for food in food_list:
-            food.draw()
-
-        if mode == MODE_CHAOS:
-            for w in walls:
-                pygame.draw.rect(screen, WALL, (*w, CELL, CELL))
-
-        pygame.draw.rect(screen, BORDER, (0,0,WIDTH,HEIGHT), 2)
-
-        draw_text(f"Score: {score}", 10, 10)
-        draw_text(f"Food: {food_count}", 10, 35)
-
-        pygame.display.flip()
-        clock.tick(speed)
-
-# ---------------- MENU ----------------
-def menu():
-    mode = 1
-    level = 1
-    food_idx = 2
-    selected = 0
-
-    modes = ["Normal", "Walls", "Chaos"]
-    levels = ["Easy", "Medium", "Hard"]
-
-    cursor_y = 150
-    pulse = 0
-
-    while True:
-        screen.fill(BG)
-
-        draw_text("SNAKE SAFE FOOD", WIDTH//2, 60, big=True, center=True, color=ACCENT)
-
-        items = [
-            ("Mode", modes[mode-1]),
-            ("Level", levels[level-1]),
-            ("Food", str(FOOD_COUNT_OPTIONS[food_idx]))
-        ]
-
-        target_y = 150 + selected * 60
-        cursor_y += (target_y - cursor_y) * 0.25
-
-        pulse += 0.1
-        glow = int(180 + 70 * abs(math.sin(pulse)))
-
-        for i,(name,value) in enumerate(items):
-            y = 150 + i*60
-            is_sel = (i == selected)
-
-            color = (glow, glow, 0) if is_sel else TEXT
-
-            if is_sel:
-                pygame.draw.polygon(screen, ACCENT, [
-                    (WIDTH//2 - 200, cursor_y - 10),
-                    (WIDTH//2 - 200, cursor_y + 10),
-                    (WIDTH//2 - 175, cursor_y)
-                ])
-
-            offset = 10 if is_sel else 0
-
-            draw_text(name, WIDTH//2 - 120 - offset, y, center=True, color=color)
-            draw_text(value, WIDTH//2 + 120 + offset, y, center=True, color=color)
-
-        draw_text("ENTER start | ESC exit", WIDTH//2, 360, center=True)
-
-        pygame.display.flip()
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
-
-            if event.type == pygame.KEYDOWN:
-
-                if event.key == pygame.K_ESCAPE:
-                    pygame.quit(); sys.exit()
-
-                if event.key == pygame.K_UP:
-                    selected = (selected - 1) % 3
-
-                if event.key == pygame.K_DOWN:
-                    selected = (selected + 1) % 3
-
-                if event.key == pygame.K_RIGHT:
-                    if selected == 0:
-                        mode = 1 if mode==3 else mode+1
-                    elif selected == 1:
-                        level = 1 if level==3 else level+1
-                    elif selected == 2:
-                        food_idx = (food_idx + 1) % len(FOOD_COUNT_OPTIONS)
-
-                if event.key == pygame.K_LEFT:
-                    if selected == 0:
-                        mode = 3 if mode==1 else mode-1
-                    elif selected == 1:
-                        level = 3 if level==1 else level-1
-                    elif selected == 2:
-                        food_idx = (food_idx - 1) % len(FOOD_COUNT_OPTIONS)
-
-                if event.key == pygame.K_RETURN:
-                    return mode, level, FOOD_COUNT_OPTIONS[food_idx]
-
-# ---------------- MAIN ----------------
-while True:
-    m,l,f = menu()
-
-    while True:
-        result = game(m,l,f)
-
-        if result == "retry":
-            continue
-
-        if result == "menu":
-            break
-
-        if result == "dead":
-            screen.fill(BG)
-            draw_text("GAME OVER", WIDTH//2, 180, big=True, center=True, color=ACCENT)
-            draw_text("R retry | ESC menu", WIDTH//2, 240, center=True)
-            pygame.display.flip()
-
-            waiting = True
-            while waiting:
-                for event in pygame.event.get():
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_r:
-                            waiting = False
-                        elif event.key == pygame.K_ESCAPE:
-                            waiting = False
-                            m,l,f = menu()
-                            break
-                clock.tick(30)
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Snake Pro Vision</title>
+
+<style>
+body {
+    margin:0;
+    background: radial-gradient(circle at center, #1a1a1a, #0b0b0b);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    font-family:consolas;
+}
+canvas {
+    border-radius:12px;
+    box-shadow: 0 0 50px rgba(0,255,150,0.25);
+}
+</style>
+</head>
+
+<body>
+<canvas id="game" width="640" height="420"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const CELL = 20;
+const W = canvas.width;
+const H = canvas.height;
+
+const MODE_WRAP = 1;
+const MODE_WALLS = 2;
+const MODE_CHAOS = 3;
+
+const SPEEDS = [0,6,9,12];
+const FOOD_OPTIONS = [1,3,5,10];
+
+let state = "menu";
+
+let mode = 1;
+let level = 1;
+let foodIndex = 0;
+let foodCount = FOOD_OPTIONS[foodIndex];
+let selected = 0;
+
+// GAME
+let snake, dir, foods, walls, score;
+let moveProgress = 0;
+let lastTime = 0;
+
+function reset(){
+    snake = [
+        {x:200,y:200, px:200, py:200},
+        {x:180,y:200, px:180, py:200},
+        {x:160,y:200, px:160, py:160}
+    ];
+
+    dir = {x:CELL,y:0};
+    foods = [];
+    score = 0;
+    walls = [];
+
+    if(mode===MODE_CHAOS){
+        for(let i=0;i<25;i++){
+            walls.push(rand());
+        }
+    }
+
+    for(let i=0;i<foodCount;i++){
+        foods.push(spawnFood());
+    }
+}
+
+function spawnFood(){
+    while(true){
+        let f = rand();
+        let ok = true;
+        for(let s of snake){
+            if(s.x===f.x && s.y===f.y) ok=false;
+        }
+        if(ok) return f;
+    }
+}
+
+function rand(){
+    return {
+        x: Math.floor(Math.random()*(W/CELL))*CELL,
+        y: Math.floor(Math.random()*(H/CELL))*CELL
+    };
+}
+
+document.addEventListener("keydown", e=>{
+
+    if(state==="menu"){
+        if(e.key==="ArrowUp") selected=(selected+2)%3;
+        if(e.key==="ArrowDown") selected=(selected+1)%3;
+
+        if(e.key==="ArrowRight"){
+            if(selected===0) mode = mode===3?1:mode+1;
+            if(selected===1) level = level===3?1:level+1;
+            if(selected===2){
+                foodIndex = (foodIndex+1)%FOOD_OPTIONS.length;
+                foodCount = FOOD_OPTIONS[foodIndex];
+            }
+        }
+
+        if(e.key==="ArrowLeft"){
+            if(selected===0) mode = mode===1?3:mode-1;
+            if(selected===1) level = level===1?3:level-1;
+            if(selected===2){
+                foodIndex = (foodIndex-1+FOOD_OPTIONS.length)%FOOD_OPTIONS.length;
+                foodCount = FOOD_OPTIONS[foodIndex];
+            }
+        }
+
+        if(e.key==="Enter"){
+            reset();
+            state="game";
+        }
+    }
+
+    else if(state==="game"){
+        if(e.key==="Escape") state="menu";
+        if(e.key==="r") reset();
+
+        if(e.key==="ArrowUp" && dir.y===0) dir={x:0,y:-CELL};
+        if(e.key==="ArrowDown" && dir.y===0) dir={x:0,y:CELL};
+        if(e.key==="ArrowLeft" && dir.x===0) dir={x:-CELL,y:0};
+        if(e.key==="ArrowRight" && dir.x===0) dir={x:CELL,y:0};
+    }
+
+    else if(state==="dead"){
+        if(e.key==="r"){ reset(); state="game"; }
+        if(e.key==="Escape"){ state="menu"; }
+    }
+});
+
+function update(time){
+
+    if(state!=="game") return;
+
+    let speed = SPEEDS[level];
+    let delta = time - lastTime;
+    lastTime = time;
+
+    moveProgress += delta/(1000/speed);
+
+    if(moveProgress >= 1){
+        moveProgress = 0;
+
+        for(let s of snake){
+            s.px = s.x;
+            s.py = s.y;
+        }
+
+        let head = {
+            x: snake[0].x + dir.x,
+            y: snake[0].y + dir.y,
+            px: snake[0].x,
+            py: snake[0].y
+        };
+
+        snake.unshift(head);
+
+        let ate = false;
+
+        for(let i=0;i<foods.length;i++){
+            if(head.x===foods[i].x && head.y===foods[i].y){
+                foods[i]=spawnFood();
+                score++;
+                ate=true;
+            }
+        }
+
+        if(!ate) snake.pop();
+
+        if(mode===MODE_WRAP){
+            if(head.x<0){ head.x=W-CELL; head.px=head.x; }
+            if(head.x>=W){ head.x=0; head.px=head.x; }
+            if(head.y<0){ head.y=H-CELL; head.py=head.y; }
+            if(head.y>=H){ head.y=0; head.py=head.y; }
+        }
+
+        if(mode===MODE_WALLS){
+            if(head.x<0||head.x>=W||head.y<0||head.y>=H){
+                state="dead";
+            }
+        }
+
+        if(mode===MODE_CHAOS){
+            if(head.x<0||head.x>=W||head.y<0||head.y>=H){
+                state="dead";
+            }
+        }
+
+        for(let i=1;i<snake.length;i++){
+            if(head.x===snake[i].x && head.y===snake[i].y){
+                state="dead";
+            }
+        }
+
+        if(mode===MODE_CHAOS){
+            for(let w of walls){
+                if(head.x===w.x && head.y===w.y){
+                    state="dead";
+                }
+            }
+        }
+    }
+}
+
+function drawMenu(){
+    ctx.fillStyle="#111";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle="#ffb400";
+    ctx.font="60px consolas";
+    ctx.fillText("SNAKE", 200,80);
+
+    let items = [
+        ["Mode", ["Normal","Walls","Chaos"][mode-1]],
+        ["Level", ["Easy","Medium","Hard"][level-1]],
+        ["Food", foodCount]
+    ];
+
+    for(let i=0;i<items.length;i++){
+        let y = 160+i*80;
+        let sel = i===selected;
+
+        ctx.font = (sel?38:28)+"px consolas";
+        ctx.fillStyle = sel ? "yellow" : "white";
+
+        ctx.fillText(items[i][0], 160, y - (sel?10:0));
+        ctx.fillText(items[i][1], 360, y - (sel?10:0));
+    }
+
+    ctx.font="20px consolas";
+    ctx.fillText("ENTER start", 240,380);
+}
+
+function drawGame(){
+
+    ctx.fillStyle="#121212";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.strokeStyle="rgba(255,255,255,0.04)";
+    for(let x=0;x<W;x+=CELL){
+        ctx.beginPath();
+        ctx.moveTo(x,0);
+        ctx.lineTo(x,H);
+        ctx.stroke();
+    }
+    for(let y=0;y<H;y+=CELL){
+        ctx.beginPath();
+        ctx.moveTo(0,y);
+        ctx.lineTo(W,y);
+        ctx.stroke();
+    }
+
+    for(let i=snake.length-1;i>=0;i--){
+        let s = snake[i];
+
+        let x = s.px + (s.x - s.px)*moveProgress;
+        let y = s.py + (s.y - s.py)*moveProgress;
+
+        ctx.fillStyle = i===0 ? "#00ffaa" : "#00cc88";
+
+        ctx.beginPath();
+        ctx.roundRect(x,y,CELL,CELL,6);
+        ctx.fill();
+
+        if(i===0){
+            ctx.fillStyle="#000";
+
+            let ex1=x+6, ey1=y+6;
+            let ex2=x+13, ey2=y+6;
+
+            if(dir.x>0){ ex1=x+12; ex2=x+12; ey1=y+6; ey2=y+13; }
+            if(dir.x<0){ ex1=x+6; ex2=x+6; ey1=y+6; ey2=y+13; }
+            if(dir.y>0){ ex1=x+6; ex2=x+13; ey1=y+12; ey2=y+12; }
+            if(dir.y<0){ ex1=x+6; ex2=x+13; ey1=y+6; ey2=y+6; }
+
+            ctx.fillRect(ex1,ey1,3,3);
+            ctx.fillRect(ex2,ey2,3,3);
+        }
+    }
+
+    ctx.shadowBlur=20;
+    ctx.shadowColor="red";
+    ctx.fillStyle="red";
+
+    for(let f of foods){
+        ctx.beginPath();
+        ctx.arc(f.x+10,f.y+10,8,0,Math.PI*2);
+        ctx.fill();
+    }
+    ctx.shadowBlur=0;
+
+    if(mode===MODE_CHAOS){
+        ctx.fillStyle="#8888ff";
+        for(let w of walls){
+            ctx.fillRect(w.x,w.y,CELL,CELL);
+        }
+    }
+
+    ctx.fillStyle="white";
+    ctx.font="20px consolas";
+    ctx.fillText("Score: "+score,10,25);
+}
+
+function drawDead(){
+    ctx.fillStyle="#111";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle="orange";
+    ctx.font="50px consolas";
+    ctx.fillText("GAME OVER",150,200);
+
+    ctx.font="24px consolas";
+    ctx.fillText("R retry | ESC menu",170,260);
+}
+
+function loop(time){
+    if(state==="menu") drawMenu();
+    if(state==="game"){ update(time); drawGame(); }
+    if(state==="dead") drawDead();
+
+    requestAnimationFrame(loop);
+}
+
+reset();
+loop();
+</script>
+
+</body>
+</html>
