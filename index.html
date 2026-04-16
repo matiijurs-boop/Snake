@@ -185,13 +185,7 @@ function update(time){
             if(head.y>=H){ head.y=0; head.py=head.y; }
         }
 
-        if(mode===MODE_WALLS){
-            if(head.x<0||head.x>=W||head.y<0||head.y>=H){
-                state="dead";
-            }
-        }
-
-        if(mode===MODE_CHAOS){
+        if(mode===MODE_WALLS || mode===MODE_CHAOS){
             if(head.x<0||head.x>=W||head.y<0||head.y>=H){
                 state="dead";
             }
@@ -213,39 +207,19 @@ function update(time){
     }
 }
 
-function drawMenu(){
-    ctx.fillStyle="#111";
-    ctx.fillRect(0,0,W,H);
-
-    ctx.fillStyle="#ffb400";
-    ctx.font="60px consolas";
-    ctx.fillText("SNAKE", 200,80);
-
-    let items = [
-        ["Mode", ["Normal","Walls","Chaos"][mode-1]],
-        ["Level", ["Easy","Medium","Hard"][level-1]],
-        ["Food", foodCount]
-    ];
-
-    for(let i=0;i<items.length;i++){
-        let y = 160+i*80;
-        let sel = i===selected;
-
-        ctx.font = (sel?38:28)+"px consolas";
-        ctx.fillStyle = sel ? "yellow" : "white";
-
-        ctx.fillText(items[i][0], 160, y - (sel?10:0));
-        ctx.fillText(items[i][1], 360, y - (sel?10:0));
-    }
-
-    ctx.font="20px consolas";
-    ctx.fillText("ENTER start", 240,380);
-}
-
 function drawGame(){
 
     ctx.fillStyle="#121212";
     ctx.fillRect(0,0,W,H);
+
+    // subtle border walls
+    if(mode===MODE_WALLS || mode===MODE_CHAOS){
+        ctx.fillStyle="rgba(255,255,255,0.05)";
+        ctx.fillRect(0,0,W,4);
+        ctx.fillRect(0,H-4,W,4);
+        ctx.fillRect(0,0,4,H);
+        ctx.fillRect(W-4,0,4,H);
+    }
 
     ctx.strokeStyle="rgba(255,255,255,0.04)";
     for(let x=0;x<W;x+=CELL){
@@ -310,6 +284,36 @@ function drawGame(){
     ctx.fillStyle="white";
     ctx.font="20px consolas";
     ctx.fillText("Score: "+score,10,25);
+}
+
+function drawMenu(){
+    ctx.fillStyle="#111";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle="#ffb400";
+    ctx.font="60px consolas";
+    ctx.fillText("SNAKE", 200,80);
+
+    let items = [
+        ["Mode", ["Normal","Walls","Chaos"][mode-1]],
+        ["Level", ["Easy","Medium","Hard"][level-1]],
+        ["Food", foodCount]
+    ];
+
+    for(let i=0;i<items.length;i++){
+        let y = 160+i*80;
+        let sel = i===selected;
+
+        ctx.font = (sel?38:28)+"px consolas";
+        ctx.fillStyle = sel ? "yellow" : "white";
+
+        ctx.fillText(items[i][0], 160, y - (sel?10:0));
+        ctx.fillText(items[i][1], 360, y - (sel?10:0));
+    }
+
+    ctx.font="20px consolas";
+    ctx.fillStyle="white";
+    ctx.fillText("ENTER start", 240,400);
 }
 
 function drawDead(){
