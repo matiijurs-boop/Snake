@@ -209,10 +209,11 @@ function update(time){
 
 function drawGame(){
 
+    ctx.textAlign = "left"; // spēles laikā atstājam pa kreisi
+
     ctx.fillStyle="#121212";
     ctx.fillRect(0,0,W,H);
 
-    // subtle border walls
     if(mode===MODE_WALLS || mode===MODE_CHAOS){
         ctx.fillStyle="rgba(255,255,255,0.05)";
         ctx.fillRect(0,0,W,4);
@@ -290,9 +291,11 @@ function drawMenu(){
     ctx.fillStyle="#111";
     ctx.fillRect(0,0,W,H);
 
+    ctx.textAlign = "center";
+
     ctx.fillStyle="#ffb400";
     ctx.font="60px consolas";
-    ctx.fillText("SNAKE", 200,80);
+    ctx.fillText("SNAKE", W/2,80);
 
     let items = [
         ["Mode", ["Normal","Walls","Chaos"][mode-1]],
@@ -307,25 +310,31 @@ function drawMenu(){
         ctx.font = (sel?38:28)+"px consolas";
         ctx.fillStyle = sel ? "yellow" : "white";
 
-        ctx.fillText(items[i][0], 160, y - (sel?10:0));
-        ctx.fillText(items[i][1], 360, y - (sel?10:0));
+        ctx.fillText(items[i][0] + ": " + items[i][1], W/2, y - (sel?10:0));
     }
 
     ctx.font="20px consolas";
     ctx.fillStyle="white";
-    ctx.fillText("ENTER start", 240,400);
+    ctx.fillText("ENTER start", W/2,400);
 }
 
 function drawDead(){
     ctx.fillStyle="#111";
     ctx.fillRect(0,0,W,H);
 
+    ctx.textAlign = "center";
+
     ctx.fillStyle="orange";
     ctx.font="50px consolas";
-    ctx.fillText("GAME OVER",150,200);
+    ctx.fillText("GAME OVER", W/2,180);
 
+    ctx.fillStyle="yellow";
+    ctx.font="32px consolas";
+    ctx.fillText("Score: " + score, W/2,230);
+
+    ctx.fillStyle="white";
     ctx.font="24px consolas";
-    ctx.fillText("R retry | ESC menu",170,260);
+    ctx.fillText("R retry | ESC menu", W/2,280);
 }
 
 function loop(time){
